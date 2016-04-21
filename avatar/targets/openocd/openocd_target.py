@@ -7,6 +7,7 @@ from builtins import int
 from future import standard_library
 standard_library.install_aliases()
 from avatar.targets.target import Target
+from avatar.targets.openocd.openocd_jig import OpenocdJig
 import socket
 import logging
 import telnetlib
@@ -43,54 +44,58 @@ def halted(fn):
           return fn(self)
     return wrapped
 
-
 class OpenocdTarget(Target):
     """
-    This module includes the logic to talk with OpenOCD in order to 
+    This module includes the logic to talk with OpenOCD in order to
     perform low-level actions on the target.
     Methods are split in three classes, according to their decorator:
         * paused: stop the target before performing actions, then resume it
         * halted: stop the target to perform actions
         * raw: plain naked actions
     """
-    
-    def __init__(self, sockaddr):
-        self._sockaddress = sockaddr
-        self._prompt = telnetlib.Telnet()
-        self.start()
+
+    def __init__(self, fname, host, port):
+        self.__host = host
+        self.__port = port
+        self.__prompt = None
+        self.__openocdjig = OpenocdJig(fname)
 
 ###################################################################
 ## Raw naked methods
 ###################################################################
-        
+    def init(self):
+        pass
+
     def start(self):
-        """ Start the telnet session to OpenOCD """
-        log.info("Trying to connect to target openocd server at %s:%d", self._sockaddress[0], self._sockaddress[1])
-        self._prompt.open(self._sockaddress[0], self._sockaddress[1])
+        self.__openocdjig.attach()
+        if self.__prompt == None :
+            log.info("Trying to connect to target openocd server at %s:%d", self.__host, self.__port)
+            self.__prompt = telnetlib.Telnet(self.__host,self.__port)
         self.get_output()
-            
+
     def stop(self):
         """ Stop the telnet session to OpenOCD """
         self.send_cmd("exit")
-        self._prompt.close()
-        del self._prompt
-    
+        self.__prompt.close()
+        del self.__prompt
+        self.__openocdjig.detach()
+
     def wait(self):
         self.get_output()
-    
-    def get_output(self, to=0):
+
+    def get_output(self, timeout=0):
         """
-        Get the output of last command 
+        Get the output of last command
         :param to: timeout in seconds (optional)
         :type to: int
         """
-        if to == 0:
-            out = str(self._prompt.read_until(b"> "))
+        if timeout == 0:
+            out = str(self.__prompt.read_until(b"> "))
         else:
-            out = str(self._prompt.read_until(b"> ", to))
+            out = str(self.__prompt.read_until(b"> ", timeout))
         out = out.split("> ")[0]
         return out
-    
+
     def halt(self):
         """ Stop the target """
         self.raw_cmd("halt", False)
@@ -101,21 +106,27 @@ class OpenocdTarget(Target):
 
     def raw_cmd(self, cmd, is_log=True):
         """
-        Send a raw command to OpenOCD 
+        Send a raw command to OpenOCD
         :param cmd: an OpenOCD command
         :type cmd: str
         :param is_log: whether to log command output (optional, default True)
         :type is_log: bool
         """
-        self._prompt.write(str(cmd+'\n').encode("ascii"))
-        out=self.get_output()
-        if is_log:
-            log.info(out)
+        self.__prompt.write(str(cmd+'\n').encode("ascii"))
+        out = self.get_output()
+        #if is_log:
+        #    log.info(out)
         return out
         
+    def set_breakpoint(self, address, **properties):
+        self.put_raw_bp(address, 2)
+
+    def remove_breakpoint(self, address):
+        self.remove_raw_bp(address)
+
     def put_raw_bp(self, addr, size):
         """
-        Put a breakpoint        
+        Put a breakpoint
         :param addr: address literal in hexadecimal
         :type addr: str
         :param size: brakpoint size
@@ -126,7 +137,7 @@ class OpenocdTarget(Target):
 
     def remove_raw_bp(self, addr):
         """
-        Remove a breakpoint        
+        Remove a breakpoint
         :param addr: address literal in hexadecimal
         :type addr: str
         """
@@ -149,11 +160,11 @@ class OpenocdTarget(Target):
         """ Change S2E configurable machine initial setup"""
         assert("machine_configuration" in cfg)
         self.get_output(2)
-        st = self.dump_all_registers()        
+        st = self.dump_all_registers()
         cfg["machine_configuration"]["init_state"] = [st]
         # Override entry address
         if "pc" in st:
-            cfg["machine_configuration"]["entry_address"] = st["pc"]            
+            cfg["machine_configuration"]["entry_address"] = st["pc"]
         return cfg
 
 ###################################################################
@@ -169,7 +180,7 @@ class OpenocdTarget(Target):
         """
 		# XXX: hardcoded: thumb, hw breakpoint
         self.raw_cmd("bp %s 2 hw" % addr)
-    
+
     @paused
     def remove_bp(self, addr):
         """
@@ -178,7 +189,7 @@ class OpenocdTarget(Target):
         :type addr: str
         """
         self.remove_raw_bp(addr)
-    
+
     @paused
     def get_register(self, regname):
         """
@@ -197,7 +208,7 @@ class OpenocdTarget(Target):
     @halted
     def dump_all_registers(self):
         """
-        Halt the target, loop over all available registers 
+        Halt the target, loop over all available registers
         and dump their content
         :return: dict of regname->value
         :rtype: dict of str->str
@@ -216,7 +227,7 @@ class OpenocdTarget(Target):
 ###################################################################
 ## Class methods
 ###################################################################
-        
+
     @classmethod
     def from_str(cls, sockaddr_str):
         """ Static factory """
@@ -224,4 +235,3 @@ class OpenocdTarget(Target):
         sockaddr = (sockaddr_str[:sockaddr_str.rfind(":")],
                     int(sockaddr_str[sockaddr_str.rfind(":") + 1:]))
         return cls(sockaddr)
-  
