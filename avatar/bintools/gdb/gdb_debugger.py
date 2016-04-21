@@ -90,7 +90,7 @@ class GdbDebugger(Debugger):
 
     def set_register(self, reg, value):
         #reg_num = self.map_register_name(reg)
-        self._gdb.sync_cmd(["-gdb-set", "$%s=0x%x" % (reg, value)], "done") 
+        self._gdb.sync_cmd(["-gdb-set", "$%s=0x%x" % (reg, value)], "done")
 
     def delete_breakpoint(self, bkpt):
         self._gdb.sync_cmd(["-break-delete", "%d" % bkpt], "done")

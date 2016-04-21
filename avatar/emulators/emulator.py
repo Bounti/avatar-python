@@ -1,6 +1,6 @@
 from avatar.debuggable import Debuggable
-from avatar.system import EVENT_REQUEST_WRITE_MEMORY_VALUE,\
-    EVENT_REQUEST_READ_MEMORY_VALUE
+
+from avatar.event import Event
 
 class Emulator(Debuggable):
     def __init__(self, system):
@@ -12,12 +12,12 @@ class Emulator(Debuggable):
         self._get_cpu_state_handler = None
         self._continue_handler = None
         self._get_checksum_handler = None
-        
+
     def set_read_request_handler(self, handler):
         self._read_handler = handler
-        
+
     def set_write_request_handler(self, handler):
-        self._write_handler = handler    
+        self._write_handler = handler
 
     def set_set_cpu_state_request_handler(self, handler):
         self._set_cpu_state_handler = handler
@@ -32,20 +32,20 @@ class Emulator(Debuggable):
         self._get_checksum_handler = handler
 
     def _notify_read_request_handler(self, params):
-        self._system.post_event({"source": "emulator", 
-                                 "tags": [EVENT_REQUEST_READ_MEMORY_VALUE],
+        self._system.post_event({"source": "emulator",
+                                 "tags": [Event.EVENT_REQUEST_READ_MEMORY_VALUE],
                                  "properties": params})
         assert(self._read_handler) #Read handler must be set at this point
-        
+
         return self._read_handler(params)
-            
+
     def _notify_write_request_handler(self, params):
-        self._system.post_event({"source": "emulator", 
-                                 "tags": [EVENT_REQUEST_WRITE_MEMORY_VALUE],
+        self._system.post_event({"source": "emulator",
+                                 "tags": [Event.EVENT_REQUEST_WRITE_MEMORY_VALUE],
                                  "properties": params})
         assert(self._write_handler) #Write handler must be set at this point
-        
-        return self._write_handler(params)       
+
+        return self._write_handler(params)
 
     def _notify_set_cpu_state_handler(self, params):
         # TODO: we don't have a notify event
@@ -70,4 +70,3 @@ class Emulator(Debuggable):
         assert(self._get_checksum_handler)
 
         return self._get_checksum_handler(params)
-

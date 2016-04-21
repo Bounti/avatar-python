@@ -6,7 +6,7 @@ Created on Jun 24, 2013
 from avatar.targets.target import Target
 import logging
 from avatar.bintools.gdb.gdb_debugger import GdbDebugger
-from avatar.system import EVENT_RUNNING, EVENT_STOPPED, EVENT_BREAKPOINT, EVENT_SIGABRT
+from avatar.event import Event
 from avatar.bintools.gdb.mi_parser import Async
 from avatar.debuggable import Breakpoint
 from queue import Queue
@@ -20,7 +20,7 @@ class GdbBreakpoint(Breakpoint):
         self._bkpt_num = bkpt_num
         self._queue = Queue()
         system.register_event_listener(self._event_receiver)
-        
+
     def wait(self, timeout = None):
         if self._handler:
             raise Exception("Breakpoint cannot have a handler and be waited on")
@@ -29,27 +29,27 @@ class GdbBreakpoint(Breakpoint):
             return self._queue.get(False)
         else:
             return self._queue.get(True, timeout)
-    
+
     def delete(self):
         self._system.unregister_event_listener(self._event_receiver)
         self._system.get_target()._gdb_interface.delete_breakpoint(self._bkpt_num)
-        
+
     def _event_receiver(self, evt):
-        if EVENT_BREAKPOINT in evt["tags"] and \
+        if Event.EVENT_BREAKPOINT in evt["tags"] and \
                 evt["source"] == "target" and \
                 evt["properties"]["bkpt_number"] == self._bkpt_num:
             if self._handler:
                 self._handler(self._system, self)
             else:
                 self._queue.put(evt)
-        elif EVENT_SIGABRT in evt["tags"]:
+        elif Event.EVENT_SIGABRT in evt["tags"]:
                 self._queue.put(evt)
 
 class GdbserverTarget(Target):
     def __init__(self, system, verbose=False):
         self._system = system
         self._verbose = verbose
-        
+
     def init(self):
         conf = self._system.get_configuration()
         assert("avatar_configuration" in conf)
@@ -67,14 +67,14 @@ class GdbserverTarget(Target):
             self.additional_args = []
         self._sockaddress = (sockaddr_str[:sockaddr_str.rfind(":")],
                              int(sockaddr_str[sockaddr_str.rfind(":") + 1:]))
-        
+
     def start(self):
         #TODO: Handle timeout
         if self._verbose: log.info("Trying to connect to target gdb server at %s:%d", self._sockaddress[0], self._sockaddress[1])
         self._gdb_interface = GdbDebugger(gdb_executable = self.gdb_exec, cwd = ".", additional_args = self.additional_args )
         self._gdb_interface.set_async_message_handler(self.handle_gdb_async_message)
         self._gdb_interface.connect(("tcp", self._sockaddress[0], "%d" % self._sockaddress[1]))
-        
+
     def write_typed_memory(self, address, size, data):
         self._gdb_interface.write_memory(address, size, data)
 
@@ -100,28 +100,28 @@ class GdbserverTarget(Target):
         return self._gdb_interface.execute_gdb_command(cmd)
     def get_checksum(self, addr, size):
         return self._gdb_interface.get_checksum(addr, size)
-        
+
     def stop(self):
         pass
-    
+
     def set_breakpoint(self, address, **properties):
         if "thumb" in properties:
             del properties["thumb"]
         bkpt = self._gdb_interface.insert_breakpoint(address, *properties)
         return GdbBreakpoint(self._system, int(bkpt["bkpt"]["number"]))
-        
-    
+
+
     def cont(self):
         self._gdb_interface.cont()
-        
+
     def handle_gdb_async_message(self, msg):
         print("Received async message: '%s'" % str(msg))
         if msg.type == Async.EXEC:
             if msg.klass == "running":
-                self._post_event({"tags": [EVENT_RUNNING], "channel": "gdb"})
+                self._post_event({"tags": [Event.EVENT_RUNNING], "channel": "gdb"})
             elif msg.klass == "stopped":
                 if "reason" in msg.results and msg.results["reason"] == "breakpoint-hit":
-                    self._post_event({"tags": [EVENT_STOPPED, EVENT_BREAKPOINT],
+                    self._post_event({"tags": [Event.EVENT_STOPPED, Event.EVENT_BREAKPOINT],
                                      "properties": {
                                         "address": int(msg.results["frame"]["addr"], 16),
                                         "bkpt_number": int(msg.results["bkptno"])},
@@ -132,7 +132,7 @@ class GdbserverTarget(Target):
                         addr = int(msg.results["frame"]["addr"], 16)
                     except:
                         addr = 0xDEADDEAD
-                    self._post_event({"tags": [EVENT_STOPPED, EVENT_SIGABRT],
+                    self._post_event({"tags": [Event.EVENT_STOPPED, Event.EVENT_SIGABRT],
                         "properties": {
                             "address": addr,
                             },
@@ -140,7 +140,7 @@ class GdbserverTarget(Target):
     def _post_event(self, evt):
         evt["source"] = "target"
         self._system.post_event(evt)
-    
+
 
     @classmethod
     def from_str(cls, sockaddr_str):
@@ -148,7 +148,3 @@ class GdbserverTarget(Target):
         sockaddr = (sockaddr_str[:sockaddr_str.rfind(":")],
                     int(sockaddr_str[sockaddr_str.rfind(":") + 1:]))
         return cls(sockaddr)
-
-def init_gdbserver_target(system):
-    system.set_target(GdbserverTarget(system))
-    
