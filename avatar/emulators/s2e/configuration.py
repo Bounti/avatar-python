@@ -19,17 +19,15 @@ from collections import OrderedDict
 log = logging.getLogger(__name__)
 
 class S2EConfiguration(object):
-    def __init__(self, config):
-        assert("s2e" in config) #S2E configuration must be present
-        assert("machine_configuration" in config) #Configurable machine configuration must be present
-        
-        self._s2e_configuration = config["s2e"]
-        self._cm_configuration = config["machine_configuration"]
-        self._output_directory = config["output_directory"]
-        self._config_directory = config["configuration_directory"]
-        self._avatar_configuration = "avatar_configuration" in config and config["avatar_configuration"] or {}
-        self._qemu_configuration = ("qemu_configuration" in config) and config["qemu_configuration"] or {}
-        
+    def __init__(self, s2e_configuration, qemu_configuration, output_directory, configuration_directory):
+        self._s2e_configuration = s2e_configuration
+        self._cm_configuration = qemu_configuration["machine_configuration"]
+        self._output_directory = output_directory
+        self._config_directory = configuration_directory
+        self._avatar_configuration = "avatar_configuration" in qemu_configuration and qemu_configuration["avatar_configuration"] or {}
+        self._qemu_configuration = qemu_configuration["qemu_configuration"] or {}
+
+>>>>>>> Error safe, more openocd support, code rewrite
         mem_addr = "127.0.0.1"
         mem_port = get_random_free_port()
         if not isinstance(self._s2e_configuration["plugins"],OrderedDict):
@@ -41,14 +39,14 @@ class S2EConfiguration(object):
             mem_addr = str(listen_addr[:listen_addr.rfind(":")])
             mem_port = int(listen_addr[listen_addr.rfind(":") + 1:])
         self._s2e_remote_memory_plugin_sockaddr = (mem_addr, mem_port)
-        
+
         #TODO: Test if this is specified in configuration, and use values from config if so
         self._s2e_gdb_sockaddr = ("127.0.0.1", get_random_free_port())
-        
+
 
     def get_klee_cmdline(self):
         cmdline = []
-        
+
         if "klee" in self._s2e_configuration:
             klee_conf = self._s2e_configuration["klee"]
             cmdline.append("--use-batching-search=%s" % (("use-batching-search" in klee_conf and klee_conf["use-batching-search"]) and "true" or "false"))
@@ -70,8 +68,8 @@ class S2EConfiguration(object):
             cmdline.append("--verbose-fork-info=true")
 
         return cmdline
-        
-        
+
+
     def get_s2e_lua(self):
         lua = []
         lua.append("-- Automatically generated Lua script configuration for S2E\n")
@@ -80,19 +78,19 @@ class S2EConfiguration(object):
         lua.append("AVATAR_SRC_ROOT_PATH = \"%s\"\n" % self._config_directory)
         lua.append("s2e = {\n")
         lua.append("generate_testcase_on_kill = %s," % (("generate_testcase_on_kill" not in self._s2e_configuration \
-                                                        or self._s2e_configuration["generate_testcase_on_kill"]) and "true" or "false"))        
+                                                        or self._s2e_configuration["generate_testcase_on_kill"]) and "true" or "false"))
         # First klee configuration
         lua.append("\tkleeArgs = {\n\t\t")
         lua.append(",\n\t\t".join(["\"%s\"" % x for x in self.get_klee_cmdline()]))
         lua.append("\n\t}")
         lua.append("\n}")
-        
+
         #Then list of enabled plugins
         if "plugins" in self._s2e_configuration and self._s2e_configuration["plugins"]:
             lua.append("\n\nplugins = {\n\t")
             lua.append(",\n\t".join(["\"%s\"" % x for x in self._s2e_configuration["plugins"]]))
             lua.append("\n}\n\n")
-        
+
             #Then configuration for each plugin
             plugin_configs = [(plugin, self.get_plugin_lua(plugin)) for plugin in self._s2e_configuration["plugins"]]
             lua.append("pluginsConfig = {\n\t")
@@ -109,7 +107,7 @@ class S2EConfiguration(object):
                 lua.append("--End of file %s\n" % fname)
                 f.close()
         return "".join(lua)
-        
+
     def get_plugin_lua(self, plugin):
         if plugin in ["BaseInstructions", "Initializer", "FunctionMonitor"]:
             return "" #Plugins not supposed to have options
@@ -167,11 +165,13 @@ class S2EConfiguration(object):
         else:
             log.warn("Unknown plugin '%s' in configuration - including raw config", plugin)
             return self._s2e_configuration["plugins"][plugin]
-    
+
     def get_s2e_executable(self, arch, endianness='little'):
         """
         This method returns the absolute path to S2E binary.
         """
+
+        log.critical(self._s2e_configuration["s2e_binary"])
         # explicit binary path in config
         if "QEMU_S2E" in os.environ:
             return os.environ["QEMU_S2E"]
@@ -186,33 +186,33 @@ class S2EConfiguration(object):
             return "/home/lucian/eurecom/s2e-build-release/qemu-release/armeb-s2e-softmmu/qemu-system-armeb"
         else:
             assert(False) #Architecture not yet implemented
-        
+
     def get_command_line(self):
         cmdline = []
-        
+
         # Check if debugging/tracing facilities are to be employed.
         # See http://wiki.qemu.org/Documentation/Debugging for details.
         if "gdbserver" in self._qemu_configuration and self._qemu_configuration["gdbserver"]:
             cmdline.append("gdbserver")
             # TODO: make this a configurable IP:port tuple
             cmdline.append("localhost:1222")
-        elif "valgrind" in self._qemu_configuration and self._qemu_configuration["valgrind"]:     
+        elif "valgrind" in self._qemu_configuration and self._qemu_configuration["valgrind"]:
             cmdline.append("valgrind")
             cmdline.append("--smc-check=all")
             cmdline.append("--leak-check=full")
-          
-        # S2E parameters  
+
+        # S2E parameters
         cmdline.append(self.get_s2e_executable(self._cm_configuration["architecture"], "endianness" in self._cm_configuration and self._cm_configuration["endianness"] or "little"))
         cmdline.append("-s2e-config-file")
         cmdline.append(os.path.join(self._output_directory, "s2e_conf.lua"))
         if "verbose" in self._s2e_configuration and self._s2e_configuration["verbose"]:
-            cmdline.append("-s2e-verbose")        
+            cmdline.append("-s2e-verbose")
         if "max-process" in self._s2e_configuration :
             cmdline.append("-s2e-max-processes")
             cmdline.append(" %d"% self._s2e_configuration["verbose"])
             cmdline.append("-nographic")
 
-        # QEMU parameters 
+        # QEMU parameters
         cmdline.append("-M")
         cmdline.append("configurable")
         cmdline.append("-kernel")
@@ -225,7 +225,7 @@ class S2EConfiguration(object):
         if "append" in self._qemu_configuration:
             for val in self._qemu_configuration["append"]:
                 cmdline.append(val)
-        TRACE_OPTIONS = {"trace_instructions": "in_asm", "trace_microops": "op"}    
+        TRACE_OPTIONS = {"trace_instructions": "in_asm", "trace_microops": "op"}
         trace_opts = []
         for (config_trace_opt, qemu_trace_opt) in TRACE_OPTIONS.items():
             if config_trace_opt in self._qemu_configuration and self._qemu_configuration[config_trace_opt]:
@@ -241,17 +241,17 @@ class S2EConfiguration(object):
                 cmdline.append(o)
 
         return cmdline
-            
+
     def write_configurable_machine_configuration_file(self):
         cm_conf = {}
         conf_dir = self._config_directory
         output_dir = self._output_directory
-        
+
         assert("architecture" in self._cm_configuration) #Architecture must be specified
         assert("cpu_model" in self._cm_configuration) #CPU must be specified
         assert("entry_address" in self._cm_configuration or "elf_executable" in self._cm_configuration) #Entry address must be specified
         assert("memory_map" in self._cm_configuration and self._cm_configuration["memory_map"]) #Memory map must be specified
-        
+
         cm_conf["architecture"] = self._cm_configuration["architecture"]
         cm_conf["cpu_model"] = self._cm_configuration["cpu_model"]
         if "entry_address" in self._cm_configuration:
@@ -261,13 +261,13 @@ class S2EConfiguration(object):
         if "init_state" in self._cm_configuration: #Initial state is optional
             cm_conf["init_state"] = self._cm_configuration["init_state"]
         cm_conf["memory_map"] = []
-        
+
         for region in self._cm_configuration["memory_map"]:
             new_region = {"size": region["size"], "name": region["name"]}
             if "is_rom" in region:
                 new_region["is_rom"] = region["is_rom"]
             assert(not ("file" in region and "data" in region)) #Cannot have both file and data attribute
-            
+
             if "file" in region:
                 #Copy from source directory to output directory
                 shutil.copy(os.path.join(conf_dir, region["file"]), os.path.join(output_dir, os.path.basename(region["file"])))
@@ -275,7 +275,7 @@ class S2EConfiguration(object):
             if "data" in region:
                 #Output data to file
                 (f, dest_file) = tempfile.mkstemp(suffix = '.bin', dir = output_dir, text = False)
-                os.write(f, region["data"]) 
+                os.write(f, region["data"])
                 os.close(f)
                 new_region["file"] = dest_file
             new_region["map"] = []
@@ -289,13 +289,13 @@ class S2EConfiguration(object):
         devices = "devices" in self._cm_configuration and self._cm_configuration["devices"] or []
         for dev in devices:
             cm_conf["devices"].append(dev)
-        
+
         f = open(os.path.join(output_dir, "configurable_machine.json"), 'w')
         json.dump(cm_conf, f, indent = 4, ensure_ascii=False)
         f.write("\n\n")
         f.close()
-        
-    
+
+
     def write_configuration_files(self, output_dir):
         f = open(os.path.join(output_dir,  "s2e_conf.lua"), 'w')
         f.write(self.get_s2e_lua())
@@ -304,7 +304,7 @@ class S2EConfiguration(object):
 
     def get_output_directory(self):
         return self._output_directory
-    
+
     def get_s2e_gdb_port(self):
         return self._s2e_gdb_sockaddr[1]
 

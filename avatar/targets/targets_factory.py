@@ -1,35 +1,62 @@
 from avatar.targets.openocd.openocd_target import OpenocdTarget
 from avatar.targets.openocd.openocd_jig import OpenocdJig
+from coloredlogs import NameNormalizer
+from humanfriendly import format_table
+import logging
+
+log = logging.getLogger(__name__)
 
 class TargetsFactory:
 
-    def __init__(self):
-        pass
-
     @staticmethod
-    def create(configuration):
+    def create(configuration, debug=True):
         """
         Parse the target element from the configuration argument
 
         :param configuration: dictionary containing all user configuration to correctly setup Avatar modules
         :return:
         """
+        nn = NameNormalizer()
 
-        conf = configuration.checkTargetConfiguration()
+        c = configuration.checkGlobalTargetConfiguration()
 
-        if conf["name"] == "openocd" :
-            conf = configuration.checkOpenocdConfiguration()
+        if c["name"] == "openocd" :
 
-            if conf["protocol"] == "telnet" :
-                return OpenocdTarget(conf["config_file"], conf["host"], int(conf["port"]))
-            elif  conf["protocol"] == "gdb":
+            c = configuration.checkTargetConfiguration()
+
+            if debug:
+                log.debug("\r\nTarget configuration : \r\n %s \r\n" % format_table([(nn.normalize_name(n), c[n]) for n in c]))
+
+            if c["protocol"] == "telnet" :
+                log.info("\r\nAttempt to configure Openocd Telnet target\r\n")
+
+                return OpenocdTarget(c["config_file"], c["host"], int(c["port"]), c["base_dir"], c["exec_path"], c["options"], c["log_stdout"])
+
+            elif  c["protocol"] == "gdb":
+                log.info("\r\nAttempt to configure Openocd GDB MI target\r\n")
+
+                openocdjig = OpenocdJig(c["config_file"], c["exec_path"],  c["base_dir"], options=c["options"], debug=debug)
+
+                return GdbserverTarget(c["config_file"], c["host"], int(c["port"]), c["exec_path"], c["options"], c["log_stdout"])
+
                 NotImplementedError("Unimplmented GDB MI connection to Openocd Server")
-            elif  conf["protocol"] == "tcl":
+
+            elif  c["protocol"] == "tcl":
+
+                log.info("\r\nAttempt to configure Openocd TCL target\r\n")
+
                 NotImplementedError("Unimplmented TCP TCL connection to Openocd Server")
+
             else :
                 raise ValueError("Target configuration wrong : undefined target protocol %s !" % self.name)
 
-        elif conf["name"] == "gdb" :
+        elif c["name"] == "gdb" :
+
             raise NotImplementedError("Unimplmented GDB MI target")
+
+            c = configuration.checkGdbConfiguration()
+
+            return GdbserverTarget()
+
         else :
             raise ValueError("Target configuration wrong : undefined target %s !" % self.name)

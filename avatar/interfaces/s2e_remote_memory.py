@@ -25,10 +25,10 @@ class RemoteMemoryInterface(object):
         self._get_cpu_state_handler = None
         self._continue_handler = None
         self._get_checksum_handler = None
-        
+
     def set_read_handler(self, listener):
         self._read_handler = listener
-        
+
     def set_write_handler(self, listener):
         self._write_handler = listener
 
@@ -43,14 +43,14 @@ class RemoteMemoryInterface(object):
 
     def set_get_checksum_handler(self, listener):
         self._get_checksum_handler= listener
-        
+
     def _handle_read(self, params):
         assert(self._read_handler) #Read handler must be installed when this is called
 
         params["value"] = self._read_handler(params)
-            
+
         return params["value"]
-            
+
     def _handle_write(self, params):
         assert(self._write_handler) #Write handler must be installed when this is called
 
@@ -83,29 +83,29 @@ class S2ERemoteMemoryInterface(RemoteMemoryInterface):
 
             self._sock_address = sock_address
             self._stop = threading.Event()
-            
+
         def start(self):
             self._thread.start()
 
         def _run(self):
-            
+
             retries=1
             while retries < 10:
                 try:
-                    log.debug("Connecting to S2E RemoteMemory plugin at %s:%d", self._sock_address[0], self._sock_address[1])
+                    log.debug("\r\nConnecting to S2E RemoteMemory plugin at %s:%d\r\n", self._sock_address[0], self._sock_address[1])
                     sock = socket.create_connection(self._sock_address)
-                    log.info("Connection to RemoteMemory plugin established")
+                    log.info("\r\nConnection to RemoteMemory plugin established\r\n")
                     retries=10
                 except Exception:
-                    log.exception("Connection to S2E RemoteMemory plugin failed (%d tries)" % retries)
+                    log.exception("\r\nConnection to S2E RemoteMemory plugin failed (%d tries)\r\n" % retries)
                     time.sleep(3)
                     retries = retries+1
                     sock=None
-            
+
             #TODO: Do proper error signalling
             if not sock:
                 sys.exit(1)
-            
+
             while not self._stop.is_set():
                 buffer = ""
                 while True:
@@ -179,7 +179,6 @@ class S2ERemoteMemoryInterface(RemoteMemoryInterface):
                         log.error("Unknown cmd %s" % (request['cmd']))
                 except Exception:
                     log.exception("Error in remote memory interface")
-                    
+
         def stop(self):
             self._stop.set()
-    
