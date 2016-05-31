@@ -46,34 +46,37 @@ class GdbBreakpoint(Breakpoint):
                 self._queue.put(evt)
 
 class GdbserverTarget(Target):
-    def __init__(self, system, verbose=False):
-        self._system = system
-        self._verbose = verbose
-
-    def init(self):
-        conf = self._system.get_configuration()
-        assert("avatar_configuration" in conf)
-        assert("target_gdb_address" in conf["avatar_configuration"])
-        assert(conf["avatar_configuration"]["target_gdb_address"].startswith("tcp:"))
-        sockaddr_str = conf["avatar_configuration"]["target_gdb_address"][4:]
-        if "target_gdb_path" in conf["avatar_configuration"]:
-                self.gdb_exec= conf["avatar_configuration"]["target_gdb_path"]
-        else:
-            self.gdb_exec = "/home/zaddach/projects/hdd-svn/gdb/gdb/gdb"
-            log.warn("target_gdb_path not defined in avatar configuration, using hardcoded GDB path: %s", self.gdb_exec)
-        if "target_gdb_additional_arguments" in conf["avatar_configuration"]:
-            self.additional_args = conf["avatar_configuration"]["target_gdb_additional_arguments"]
-        else:
-            self.additional_args = []
-        self._sockaddress = (sockaddr_str[:sockaddr_str.rfind(":")],
-                             int(sockaddr_str[sockaddr_str.rfind(":") + 1:]))
+    def __init__(self, host, port, exec_path="gdb", options=[], log_stdout=False, fname=None):
+        self._port = port
+        self._host = host
+        self._config_file = config_file
+        self._exec_path = exec_path
+        self._options = options
+        self._log_stdout = log_stdout
+        self._fname = fname
 
     def start(self):
         #TODO: Handle timeout
-        if self._verbose: log.info("Trying to connect to target gdb server at %s:%d", self._sockaddress[0], self._sockaddress[1])
-        self._gdb_interface = GdbDebugger(gdb_executable = self.gdb_exec, cwd = ".", additional_args = self.additional_args )
+
+        if self._exec_path != "gdb" :
+            log.warn("target_gdb_path not defined in avatar configuration, using hardcoded GDB path: %s", self._exec_path)
+
+        if  System(None).is_debug :
+            log.info("Trying to connect to target gdb server at %s:%d", self._host, self._port)
+
+        self._gdb_interface = GdbDebugger(gdb_executable = self._exec_path, cwd = ".", additional_args = self._options )
         self._gdb_interface.set_async_message_handler(self.handle_gdb_async_message)
-        self._gdb_interface.connect(("tcp", self._sockaddress[0], "%d" % self._sockaddress[1]))
+
+        not_started = False
+
+        while not_started :
+            try:
+                self._gdb_interface.connect(("tcp", self._host, "%d" % self._port))
+                not_started = True
+            except TimeoutError :
+                if  System(None).is_debug :
+                    log.info("Timeout... Connecting to %s:%d again ", self._host, self._port)
+                continue
 
     def write_typed_memory(self, address, size, data):
         self._gdb_interface.write_memory(address, size, data)
@@ -98,6 +101,7 @@ class GdbserverTarget(Target):
 
     def execute_gdb_command(self, cmd):
         return self._gdb_interface.execute_gdb_command(cmd)
+
     def get_checksum(self, addr, size):
         return self._gdb_interface.get_checksum(addr, size)
 
@@ -109,7 +113,6 @@ class GdbserverTarget(Target):
             del properties["thumb"]
         bkpt = self._gdb_interface.insert_breakpoint(address, *properties)
         return GdbBreakpoint(self._system, int(bkpt["bkpt"]["number"]))
-
 
     def cont(self):
         self._gdb_interface.cont()
@@ -137,10 +140,10 @@ class GdbserverTarget(Target):
                             "address": addr,
                             },
                         "channel": "gdb"})
+
     def _post_event(self, evt):
         evt["source"] = "target"
         self._system.post_event(evt)
-
 
     @classmethod
     def from_str(cls, sockaddr_str):

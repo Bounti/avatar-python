@@ -10,21 +10,22 @@ import signal
 import threading
 from avatar.bintools.gdb.gdb_debugger import GdbDebugger
 from avatar.bintools.gdb.mi_parser import Async
-from avatar.event import Event
-
-from avatar.system import System
+from avatar.events.event import Event
 
 from avatar.debuggable import Breakpoint
 from queue import Queue
+
 log = logging.getLogger(__name__)
 
 class S2EBreakpoint(Breakpoint):
-    def __init__(self, system, bkpt_num):
+
+    def __init__(self, bkpt_num):
+        from avatar.system import System
+
         super().__init__()
-        self._system = system
         self._bkpt_num = bkpt_num
         self._queue = Queue()
-        system.register_event_listener(self._event_receiver)
+        System.getInstance().register_event_listener(self._event_receiver)
 
     def wait(self, timeout = None):
         if self._handler:
@@ -36,26 +37,32 @@ class S2EBreakpoint(Breakpoint):
             return self._queue.get(True, timeout)
 
     def delete(self):
-        self._system.unregister_event_listener(self._event_receiver)
-        self._system.get_emulator()._gdb_interface.delete_breakpoint(self._bkpt_num)
+        System.getInstance().unregister_event_listener(self._event_receiver)
+        System.getInstance().get_emulator()._gdb_interface.delete_breakpoint(self._bkpt_num)
 
     def _event_receiver(self, evt):
         if Event.EVENT_BREAKPOINT in evt["tags"] and \
                 evt["source"] == "emulator" and \
                 evt["properties"]["bkpt_number"] == self._bkpt_num:
             if self._handler:
-                self._handler(self._system, self)
+                self._handler(System.getInstance(), self)
             else:
                 self._queue.put(evt)
 
-
 class S2EEmulator(Emulator):
-    def __init__(self, system):
-        super().__init__(system)
-        self._configuration = S2EConfiguration(System.configuration)
+    def __init__(self, s2e_configuration, qemu_configuration, output_directory, configuration_directory):
+        self._configuration = S2EConfiguration(s2e_configuration,
+            qemu_configuration,
+            output_directory,
+            configuration_directory)
+
+        from avatar.system import System
+        self._system = System.getInstance()
+
+        self._output_directory = output_directory
 
     def init(self):
-        self._configuration.write_configuration_files(System.configuration["output_directory"])
+        self._configuration.write_configuration_files(self._output_directory)
         self._cmdline = self._configuration.get_command_line()
 
     def start(self):
@@ -63,7 +70,6 @@ class S2EEmulator(Emulator):
         if s2e_processes:
             log.warn("There are still S2E instances running, NOT killing them ...")
             log.warn("Results might be corrupted if output files are not different")
-        log.info("Executing S2E process: %s", " ".join(["'%s'" % x for x in self._cmdline]))
         self._s2e_thread = threading.Thread(target = self.run_s2e_process)
         self._is_s2e_running = threading.Event()
         self._s2e_thread.start()
@@ -84,7 +90,7 @@ class S2EEmulator(Emulator):
 
     def run_s2e_process(self):
         try:
-            log.info("Starting S2E process: %s", " ".join(["'%s'" % x for x in self._cmdline]))
+            log.info("Starting S2E process \r\n : %s \r\n", " ".join(["'%s'" % x for x in self._cmdline]))
 
             self._s2e_process = subprocess.Popen(
                         self._cmdline,
@@ -111,7 +117,7 @@ class S2EEmulator(Emulator):
                 self._remote_memory_interface.set_set_cpu_state_handler(self._notify_set_cpu_state_handler)
                 self._remote_memory_interface.set_get_cpu_state_handler(self._notify_get_cpu_state_handler)
                 self._remote_memory_interface.set_continue_handler(self._notify_continue_handler)
-                self._remote_memory_interface.set_get_checksum_handler(self._system.get_target().get_checksum)
+                self._remote_memory_interface.set_get_checksum_handler(self._notify_get_checksum_handler)
                 time.sleep(2) #Wait a bit for the S2E process to start
                 self._remote_memory_interface.start()
 
@@ -169,7 +175,7 @@ class S2EEmulator(Emulator):
         if "thumb" in properties:
             del properties["thumb"]
         bkpt = self._gdb_interface.insert_breakpoint(address, *properties)
-        return S2EBreakpoint(self._system, int(bkpt["bkpt"]["number"]))
+        return S2EBreakpoint(int(bkpt["bkpt"]["number"]))
     def execute_gdb_command(self, cmd):
         return self._gdb_interface.execute_gdb_command(cmd)
 
@@ -210,4 +216,4 @@ class S2EEmulator(Emulator):
 
     def post_event(self, evt):
         evt["source"] = "emulator"
-        self._system.post_event(evt)
+        System.getInstance().post_event(evt)

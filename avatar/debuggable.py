@@ -23,6 +23,7 @@ class Breakpoint():
 
 
 class Debuggable():
+
     """This is an interface for all objects that support a minimal set of debugging operations"""
     def read_typed_memory(self, address, size):
         print("******************µµERROR WRONG FUNCTION***********l")

@@ -1,17 +1,12 @@
 from avatar.targets.target import Target
 from avatar.targets.openocd.openocd_jig import OpenocdJig
+
 import socket
 import logging
 import telnetlib
+import time
 
 log = logging.getLogger(__name__)
-
-#This names are OpenOCD specific
-ARM_REGISTERS = ["r0", "r1","r2","r3","r4","r5","r6","r7","r8","r9","r10","r11",
-                  "r12","sp_usr","lr_usr","pc","cpsr","r8_fiq","r9_fiq",
-                  "r10_fiq","r11_fiq","r12_fiq","sp_fiq","lr_fiq","spsr_fiq",
-                  "sp_svc","lr_svc","spsr_svc","sp_abt","lr_abt","spsr_abt",
-                  "sp_irq","lr_irq","spsr_irq","sp_und","lr_und","spsr_und"]
 
 # Decorator for methods requiring target Stop&Start
 def paused(fn):
@@ -46,31 +41,59 @@ class OpenocdTarget(Target):
         * raw: plain naked actions
     """
 
-    def __init__(self, fname, host, port):
-        self.__host = host
-        self.__port = port
-        self.__prompt = None
-        self.__openocdjig = OpenocdJig(fname)
+    def __init__(self, fname, host, port, base_dir, exec_path="openocd", options="", debug=False):
+        self._name = "Openocd [%s:%d]" % (host,port)
+        self._host = host
+        self._port = port
+        self._base_dir = base_dir
+        self._exec_path = exec_path
+        self._debug = debug
+        self._prompt = None
+        self._base_dir = base_dir
+        self._openocdjig = OpenocdJig(fname, exec_path, base_dir, options=options, debug=self._debug)
+        self._connected = False
 
-###################################################################
-## Raw naked methods
-###################################################################
+    def __str__(self):
+        return self._name
+
     def init(self):
         pass
 
     def start(self):
-        self.__openocdjig.attach()
-        if self.__prompt == None :
-            log.info("Trying to connect to target openocd server at %s:%d", self.__host, self.__port)
-            self.__prompt = telnetlib.Telnet(self.__host,self.__port)
-        self.get_output()
+        if self._connected is not True:
+            self._openocdjig.attach()
+
+            if self._prompt == None :
+
+                timeout = 0
+                while not self._connected :
+                    try :
+                        log.info("Trying to connect to target openocd server at %s:%d", self._host, self._port)
+                        self._prompt = telnetlib.Telnet(self._host,self._port)
+                        self._connected = True
+                    except ConnectionRefusedError as e:
+                        log.warning("Unable to connect to target openocd server at %s:%d (%d)", self._host, self._port, timeout)
+                        timeout = timeout + 1
+                        time.sleep(2)
+                        if timeout > 5 :
+                            raise ConnectionRefusedError("Unable to connect to openocd, please check openocd logs : %s " % self._base_dir+"/openocd_std.log")
+
+            self.get_output()
+
 
     def stop(self):
         """ Stop the telnet session to OpenOCD """
-        self.send_cmd("exit")
-        self.__prompt.close()
-        del self.__prompt
-        self.__openocdjig.detach()
+        if self._connected is True :
+
+            self._prompt.write(str("exit"+'\n').encode("ascii"))
+
+            self._prompt.close()
+
+            del self._prompt
+
+            self._openocdjig.detach()
+
+            self._connected = False
 
     def wait(self):
         self.get_output()
@@ -82,11 +105,15 @@ class OpenocdTarget(Target):
         :type to: int
         """
         if timeout == 0:
-            out = str(self.__prompt.read_until(b"> "))
+            out = str(self._prompt.read_until(b"> "))
         else:
-            out = str(self.__prompt.read_until(b"> ", timeout))
+            out = str(self._prompt.read_until(b"> ", timeout))
         out = out.split("> ")[0]
         return out
+
+###################################################################
+## Raw naked methods
+###################################################################
 
     def halt(self):
         """ Stop the target """
@@ -96,6 +123,9 @@ class OpenocdTarget(Target):
         """ Resume the target """
         self.raw_cmd("resume", False)
 
+    def get_checksum(self, addr, size):
+        return raw_cmd("checksum %s %d" % (addr, size))
+
     def raw_cmd(self, cmd, is_log=True):
         """
         Send a raw command to OpenOCD
@@ -104,11 +134,38 @@ class OpenocdTarget(Target):
         :param is_log: whether to log command output (optional, default True)
         :type is_log: bool
         """
-        self.__prompt.write(str(cmd+'\n').encode("ascii"))
+        self._prompt.write(str(cmd+'\n').encode("ascii"))
         out = self.get_output()
         #if is_log:
         #    log.info(out)
         return out
+
+    def write_typed_memory(self, address : "str 0xNNNNNNNN", size : "int", data):
+        cmd = ""
+        if size == 8 :
+            cmd = "mwb"
+        if size == 16 :
+            cmd = "mwh"
+        if size == 32 :
+            cmd = "mww"
+
+        assert( cmd != "" ), \
+            "invalid argument '%d' for size in write_typed_memory, accepted 8, 16, 32" % size
+        self.raw_cmd(cmd+" %s %s" % (address, data))
+
+    def read_typed_memory(self, address : "str 0xNNNNNNNN", size : "int"):
+
+        cmd = ""
+        if size == 8 :
+            cmd = "mdb"
+        if size == 16 :
+            cmd = "mdh"
+        if size == 32 :
+            cmd = "mdw"
+
+        assert( cmd != "" ), \
+            "invalid argument '%d' for size in write_typed_memory, accepted 8, 16, 32" % size
+        self.raw_cmd(cmd+" %s" % address)
 
     def set_breakpoint(self, address, **properties):
         self.put_raw_bp(address, 2)
@@ -135,7 +192,7 @@ class OpenocdTarget(Target):
         """
         self.raw_cmd("rbp %s" % addr)
 
-    def get_raw_register(self, regname : "str")-> "str 0xNNNNNNNN":
+    def get_raw_register(self, regname):
         """
         Read a single register, allowed values within ARM_REGISTERS
         :param regname: register name (see ARM_REGISTERS)
@@ -143,10 +200,13 @@ class OpenocdTarget(Target):
         :return: value register in hexadecimal
         :rtype: str
         """
-        assert(regname in ARM_REGISTERS)
-        value=self.raw_cmd("reg " + regname, False).split(": ")[-1]
-        # XXX
-        return value.split("\\")[0]
+        value = self.raw_cmd("reg " + regname, False)
+
+        assert("not found" not in value), "Register '%s' not found in current target " % regname
+
+        value = value.split(": ")[1][:10]
+
+        return int(value, 0)
 
     def initstate(self, cfg : "dict of str"):
         """ Change S2E configurable machine initial setup"""
@@ -183,7 +243,7 @@ class OpenocdTarget(Target):
         self.remove_raw_bp(addr)
 
     @paused
-    def get_register(self, regname : "str") -> "str 0xNNNNNNNN":
+    def get_register(self, regname):
         """
         Pause the target, read a single register, then resume it
         :param regname: register name (allowed values within ARM_REGISTERS)
@@ -198,7 +258,7 @@ class OpenocdTarget(Target):
 ###################################################################
 
     @halted
-    def dump_all_registers(self)-> "dict{str: str 0xNNNNNNNN}":
+    def dump_all_registers(self):
         """
         Halt the target, loop over all available registers
         and dump their content
@@ -208,12 +268,18 @@ class OpenocdTarget(Target):
         out = {}
         # Flush session input
         self.get_output(2)
-        for i in ARM_REGISTERS:
-            val = self.get_raw_register(i)
-            try:
-                out[i] = int(val, 0) # thanks json
-            except Exception as ex:
-                log.exception("%s ignored, read value was «%s»" % (i, val))
+
+        try:
+            for i in ARM_REGISTERS:
+                val = self.get_raw_register(i)
+                try:
+                    out[i] = int(val, 0)
+                except Exception as ex:
+                    log.exception("%s ignored, read value was «%s»" % (i, val))
+                    continue
+        except Exception as e:
+            log.critical(e)
+            return {}
         return out
 
 ###################################################################

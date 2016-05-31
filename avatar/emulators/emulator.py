@@ -1,11 +1,17 @@
 from avatar.debuggable import Debuggable
 
-from avatar.event import Event
+from avatar.events.event import Event
 
 class Emulator(Debuggable):
-    def __init__(self, system):
+    def __str__():
+        return self.__name
+
+    def __init__(self, name):
         super(Emulator, self).__init__()
-        self._system = system
+        from avatar.system import System
+
+        self.__system = System.getInstance()
+        self.__name = name
         self._read_handler = None
         self._write_handler = None
         self._set_cpu_state_handler = None
@@ -32,7 +38,7 @@ class Emulator(Debuggable):
         self._get_checksum_handler = handler
 
     def _notify_read_request_handler(self, params):
-        self._system.post_event({"source": "emulator",
+        self.__system.post_event({"source": "emulator",
                                  "tags": [Event.EVENT_REQUEST_READ_MEMORY_VALUE],
                                  "properties": params})
         assert(self._read_handler) #Read handler must be set at this point
@@ -40,7 +46,7 @@ class Emulator(Debuggable):
         return self._read_handler(params)
 
     def _notify_write_request_handler(self, params):
-        self._system.post_event({"source": "emulator",
+        self.__system.post_event({"source": "emulator",
                                  "tags": [Event.EVENT_REQUEST_WRITE_MEMORY_VALUE],
                                  "properties": params})
         assert(self._write_handler) #Write handler must be set at this point
