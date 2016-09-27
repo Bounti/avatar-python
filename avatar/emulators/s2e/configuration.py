@@ -160,7 +160,6 @@ class S2EConfiguration():
         This method returns the absolute path to S2E binary.
         """
 
-        log.critical(self._s2e_configuration["s2e_binary"])
         # explicit binary path in config
         if "QEMU_S2E" in os.environ:
             return os.environ["QEMU_S2E"]
