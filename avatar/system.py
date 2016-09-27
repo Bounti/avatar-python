@@ -70,7 +70,7 @@ class System(object):
             Log.activeLog(self._configuration.getOutputDirectory())
 
         except (ValueError, AssertionError, OSError, NotImplementedError) as e:
-            log.critical("%s \r\n" % e)
+            log.critical("Fail create : %s \r\n" % e)
             sys.exit(0)
 
         AvatarSignal.handle()
@@ -86,14 +86,14 @@ class System(object):
 
         try :
             self._emulator.init()
-            log.info("\r\nEmulator initialized : %s\r\n" % str(self._emulator))
+            log.info("\r\nAnalyzer initialized : %s\r\n" % str(self._emulator))
 
             self._target.init()
             log.info("\r\nTarget initialized : %s\r\n" % str(self._target))
 
             self.is_initialized = True
-        except Exception as e:
-            log.critical("\r\n"+str(e)+"\r\n")
+        except ConnectionRefusedError as e:
+            log.critical("Fail to init : \r\n"+str(e)+"\r\n")
             self.stop()
 
     def start(self):
@@ -126,7 +126,7 @@ class System(object):
 
             self._started = True
         except (FileNotFoundError, ConnectionRefusedError) as e :
-            log.critical("\r\n"+e+"\r\n")
+            log.critical("Fail to start : \r\n"+e+"\r\n")
             self.stop()
 
         nn = NameNormalizer()
