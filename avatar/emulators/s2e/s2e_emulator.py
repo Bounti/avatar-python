@@ -65,10 +65,16 @@ class S2EEmulator(Emulator):
             output_directory,
             configuration_directory)
 
+        self._name = "s2e"
+
         from avatar.system import System
         self._system = System.getInstance()
 
         self._output_directory = output_directory
+
+    def __str__(self):
+
+        return self._name
 
     def init(self):
         self._configuration.write_configuration_files(self._output_directory)
