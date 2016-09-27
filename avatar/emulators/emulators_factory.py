@@ -17,7 +17,21 @@ class EmulatorsFactory:
 
         c = configuration.checkEmulatorConfiguration()
 
-        return S2EEmulator( c["s2e"],
-                        c["qemu"],
-                        c["settings_dir"],
-                        c["output_dir"])
+        if c["analyzer"]["name"] == "s2e" :
+
+            return S2EEmulator( c["analyzer"]["configuration"],
+                            c["emulator"]["configuration"],
+                            c["settings_dir"],
+                            c["output_dir"])
+
+        elif c["analyzer"]['name'] == "klee" :
+
+                log.info("\r\nAttempt to configure Klee analyzer\r\n")
+
+                raise NotImplementedError("Unimplmented Klee analyzer")
+
+        elif c["analyzer"]['name'] == "angr" :
+
+                log.info("\r\nAttempt to configure Angr analyzer\r\n")
+
+                raise NotImplementedError("Unimplmented Angr analyzer")

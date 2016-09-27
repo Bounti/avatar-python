@@ -39,8 +39,26 @@ class Configuration:
             "Bad user settings : Unable to locate 'output_directory' settings"
         self._output_directory = self._settings["output_directory"]
 
+    def checkSuperspeedJtagConfiguration(self):
 
-    def checkTargetConfiguration(self):
+        assert ("access-port" in self._target_settings_details), \
+            "Bad user settings : Unable to locate superspeed-jtag target 'protocol' setting"
+        ap = self._target_settings_details["access-port"]
+
+        assert ("options" in self._target_settings_details), \
+            "Bad user settings : Unable to locate superspeed-jtag target 'options' setting"
+        options = self._target_settings_details["options"]
+
+        assert ("log_stdout" in self._target_settings_details), \
+            "Bad user settings : Unable to locate superspeed-jtag target 'log_stdout' setting"
+        log_stdout = self._target_settings_details["log_stdout"]
+
+        return {"access-port"   : ap,
+                "options"       : options,
+                "log_stdout"    : log_stdout,
+                "base_dir"      : self._directory_settings}
+
+    def checkOpenocdTargetConfiguration(self):
 
         assert ("config_file" in self._target_settings_details), \
             "Bad user settings : Unable to locate openocd target 'config_file' setting"
@@ -106,19 +124,19 @@ class Configuration:
 
         assert ("configuration" in self._analyzer_settings), \
             "Bad user settings : Unable to locate symbolic engine 'configuration' settings"
-        s2e = self._analyzer_settings["configuration"]
+        analyzer = self._analyzer_settings
 
         assert ("configuration" in self._emulator_settings), \
             "Bad user settings : Unable to locate emulator 'configuration' settings"
-        qemu = self._emulator_settings["configuration"]
+        emulator = self._emulator_settings
 
         keys = ["verbose","exec_path","gdb_path","gdb_options","klee_options","plugins"]
         s2e_values = self.checkConfiguration(keys, self._analyzer_settings)
 
-        return {"s2e"   : s2e,
-                "qemu"  : qemu,
-                "settings_dir" : self._directory_settings,
-                "output_dir"      : self._output_directory}
+        return {"analyzer"      : analyzer,
+                "emulator"      : emulator,
+                "settings_dir"  : self._directory_settings,
+                "output_dir"    : self._output_directory}
 
     def checkConfiguration(self, keys, source):
         out = {}

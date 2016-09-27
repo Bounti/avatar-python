@@ -1,18 +1,10 @@
-from __future__ import unicode_literals
-from __future__ import print_function
-from __future__ import division
-from __future__ import absolute_import
-from builtins import str
-from builtins import int
-from future import standard_library
-standard_library.install_aliases()
 from avatar.targets.target import Target
-from avatar.targets.openocd.openocd_jig import OpenocdJig
 
 import socket
 import logging
 import telnetlib
 import time
+from ctypes import cdll
 
 log = logging.getLogger(__name__)
 
@@ -39,9 +31,9 @@ def halted(fn):
           return fn(self)
     return wrapped
 
-class OpenocdTarget(Target):
+class SuperspeedJtagTarget(Target):
     """
-    This module includes the logic to talk with OpenOCD in order to
+    This module includes the logic to talk with SuperspeedJtag in order to
     perform low-level actions on the target.
     Methods are split in three classes, according to their decorator:
         * paused: stop the target before performing actions, then resume it
@@ -49,17 +41,19 @@ class OpenocdTarget(Target):
         * raw: plain naked actions
     """
 
-    def __init__(self, fname, host, port, base_dir, exec_path="openocd", options="", debug=False):
-        self._name = "Openocd [%s:%d]" % (host,port)
-        self._host = host
-        self._port = port
+    def __init__(self, ap, base_dir, options="", debug=False):
+        self._name = "SuperspeedJtag (%s)" % (ap)
+        self._ap = ap
         self._base_dir = base_dir
-        self._exec_path = exec_path
         self._debug = debug
         self._prompt = None
         self._base_dir = base_dir
-        self._openocdjig = OpenocdJig(fname, exec_path, base_dir, options=options, debug=self._debug)
         self._connected = False
+        self.lib = cdll.LoadLibrary('lib/libsuperspeed-jtag.so')
+        self.obj = None
+
+        if self.lib == None :
+            raise Exception("Unable to load dynamic library : libsuperspeed-jtag.so")
 
     def __str__(self):
         return self._name
@@ -69,56 +63,15 @@ class OpenocdTarget(Target):
 
     def start(self):
         if self._connected is not True:
-            self._openocdjig.attach()
-
-            if self._prompt == None :
-
-                timeout = 0
-                while not self._connected :
-                    try :
-                        log.info("Trying to connect to target openocd server at %s:%d", self._host, self._port)
-                        self._prompt = telnetlib.Telnet(self._host,self._port)
-                        self._connected = True
-                    except ConnectionRefusedError as e:
-                        log.warning("Unable to connect to target openocd server at %s:%d (%d)", self._host, self._port, timeout)
-                        timeout = timeout + 1
-                        time.sleep(2)
-                        if timeout > 5 :
-                            log.error("Please check Openocd log for more details.")
-                            raise ConnectionRefusedError("Unable to connect to openocd, please check openocd logs : %s " % self._base_dir+"/openocd_std.log")
-
-            self.get_output()
-
+            self.obj = self.lib.jtag_init()
 
     def stop(self):
-        """ Stop the telnet session to OpenOCD """
+        """ Stop the Jtag device """
         if self._connected is True :
 
-            self._prompt.write(str("exit"+'\n').encode("ascii"))
-
-            self._prompt.close()
-
-            del self._prompt
-
-            self._openocdjig.detach()
+            self.lib.jtag_close(self.obj)
 
             self._connected = False
-
-    def wait(self):
-        self.get_output()
-
-    def get_output(self, timeout=0):
-        """
-        Get the output of last command
-        :param to: timeout in seconds (optional)
-        :type to: int
-        """
-        if timeout == 0:
-            out = str(self._prompt.read_until(b"> "))
-        else:
-            out = str(self._prompt.read_until(b"> ", timeout))
-        out = out.split("> ")[0]
-        return out
 
 ###################################################################
 ## Raw naked methods
@@ -126,54 +79,22 @@ class OpenocdTarget(Target):
 
     def halt(self):
         """ Stop the target """
-        self.raw_cmd("halt", False)
+        self.lib.jtag_halt(self.obj)
 
     def cont(self):
         """ Resume the target """
-        self.raw_cmd("resume", False)
+        self.lib.jtag_resume(self.obj)
 
     def get_checksum(self, addr, size):
-        return raw_cmd("checksum %s %d" % (addr, size))
-
-    def raw_cmd(self, cmd, is_log=True):
-        """
-        Send a raw command to OpenOCD
-        :param cmd: an OpenOCD command
-        :type cmd: str
-        :param is_log: whether to log command output (optional, default True)
-        :type is_log: bool
-        """
-        self._prompt.write(str(cmd+'\n').encode("ascii"))
-        out = self.get_output()
-        #if is_log:
-        #    log.info(out)
-        return out
+        return self.lib.jtag_checksum(self.obj, addr, size)
 
     def write_typed_memory(self, address : "str 0xNNNNNNNN", size : "int", data):
-        cmd = ""
-        if size == 8 :
-            cmd = "mwb"
-        if size == 16 :
-            cmd = "mwh"
-        if size == 32 :
-            cmd = "mww"
 
-        assert( cmd != "" ), \
-            "invalid argument '%d' for size in write_typed_memory, accepted 8, 16, 32" % size
-        self.raw_cmd(cmd+" %s %s" % (address, data))
+        self.lib.jtag_write(self.obj, address, data)
 
     def read_typed_memory(self, address : "str 0xNNNNNNNN", size : "int"):
-        cmd = ""
-        if size == 8 :
-            cmd = "mdb"
-        if size == 16 :
-            cmd = "mdh"
-        if size == 32 :
-            cmd = "mdw"
 
-        assert( cmd != "" ), \
-            "invalid argument '%d' for size in write_typed_memory, accepted 8, 16, 32" % size
-        self.raw_cmd(cmd+" %s" % address)
+        self.lib.jtag_read(self.obj, address)
 
     def set_breakpoint(self, address, **properties):
         self.put_raw_bp(address, 2)
@@ -181,7 +102,7 @@ class OpenocdTarget(Target):
     def remove_breakpoint(self, address):
         self.remove_raw_bp(address)
 
-    def put_raw_bp(self, addr, size):
+    def put_raw_bp(self, addr : "str 0xNNNNNNNN", size : "int"):
         """
         Put a breakpoint
         :param addr: address literal in hexadecimal
@@ -189,17 +110,16 @@ class OpenocdTarget(Target):
         :param size: brakpoint size
         :type size: integer
         """
-		# FIXME: hardcoded hw breakpoint
-        self.raw_cmd("bp %s %d hw" % (addr, size))
+        self.lib.bp(self.obj, addr, size)
 
-    def remove_raw_bp(self, addr):
+    def remove_raw_bp(self, addr : "str 0xNNNNNNNN"):
         """
         Remove a breakpoint
         :param addr: address literal in hexadecimal
         :type addr: str
         """
-        self.raw_cmd("rbp %s" % addr)
-    
+        self.lib.remove_bp(self.obj, addr, size)
+
     def get_raw_register(self, regname):
         """
         Read a single register, allowed values within ARM_REGISTERS
@@ -208,12 +128,9 @@ class OpenocdTarget(Target):
         :return: value register in hexadecimal
         :rtype: str
         """
-        assert(regname in ARM_REGISTERS)
-        value=self.raw_cmd("reg " + regname, False).split(": ")[-1]
-        # XXX
-        return value.split("\\")[0]
-    
-    def initstate(self, cfg):
+        return self.lib.raw_register(self.obj, regname)
+
+    def initstate(self, cfg : "dict of str"):
         """ Change S2E configurable machine initial setup"""
         assert("machine_configuration" in cfg)
         self.get_output(2)
@@ -229,7 +146,7 @@ class OpenocdTarget(Target):
 ###################################################################
 
     @paused
-    def put_bp(self, addr):
+    def put_bp(self, addr : "str 0xNNNNNNNN"):
         """
         Pause the target, put a breakpoint, then resume it
         :param addr: address literal in hexadecimal
@@ -239,7 +156,7 @@ class OpenocdTarget(Target):
         self.raw_cmd("bp %s 2 hw" % addr)
 
     @paused
-    def remove_bp(self, addr):
+    def remove_bp(self, addr : "str 0xNNNNNNNN"):
         """
         Pause the target, remove a breakpoint, the resume it
         :param addr: address literal in hexadecimal
@@ -292,7 +209,7 @@ class OpenocdTarget(Target):
 ###################################################################
 
     @classmethod
-    def from_str(cls, sockaddr_str):
+    def from_str(cls, sockaddr_str: "str, proto:addr:port"):
         """ Static factory """
         assert(sockaddr_str.startswith("tcp:"))
         sockaddr = (sockaddr_str[:sockaddr_str.rfind(":")],

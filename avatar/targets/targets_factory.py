@@ -1,5 +1,6 @@
 from avatar.targets.openocd.openocd_target import OpenocdTarget
 from avatar.targets.openocd.openocd_jig import OpenocdJig
+from avatar.targets.superspeedjtag.superspeed_jtag import SuperspeedJtagTarget
 from coloredlogs import NameNormalizer
 from humanfriendly import format_table
 import logging
@@ -22,7 +23,7 @@ class TargetsFactory:
 
         if c["name"] == "openocd" :
 
-            c = configuration.checkTargetConfiguration()
+            c = configuration.checkOpenocdTargetConfiguration()
 
             if debug:
                 log.debug("\r\nTarget configuration : \r\n %s \r\n" % format_table([(nn.normalize_name(n), c[n]) for n in c]))
@@ -39,13 +40,13 @@ class TargetsFactory:
 
                 return GdbserverTarget(c["config_file"], c["host"], int(c["port"]), c["exec_path"], c["options"], c["log_stdout"])
 
-                NotImplementedError("Unimplmented GDB MI connection to Openocd Server")
+                raise NotImplementedError("Unimplmented GDB MI connection to Openocd Server")
 
             elif  c["protocol"] == "tcl":
 
                 log.info("\r\nAttempt to configure Openocd TCL target\r\n")
 
-                NotImplementedError("Unimplmented TCP TCL connection to Openocd Server")
+                raise NotImplementedError("Unimplmented TCP TCL connection to Openocd Server")
 
             else :
                 raise ValueError("Target configuration wrong : undefined target protocol %s !" % self.name)
@@ -57,6 +58,12 @@ class TargetsFactory:
             c = configuration.checkGdbConfiguration()
 
             return GdbserverTarget()
+
+        elif c["name"] == "superspeed-jtag" :
+
+            c = configuration.checkSuperspeedJtagConfiguration()
+
+            return SuperspeedJtagTarget( c['access-port'], c['base_dir'], c['options'], debug=False)
 
         else :
             raise ValueError("Target configuration wrong : undefined target %s !" % self.name)
