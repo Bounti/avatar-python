@@ -15,22 +15,28 @@ class EmulatorsFactory:
         :return:
         """
 
-        c = configuration.checkEmulatorConfiguration()
+        a = configuration.checkGlobalAnalyzerConfiguration()
 
-        if c["analyzer"]["name"] == "s2e" :
+        e = configuration.checkGlobalEmulatorConfiguration()
 
-            return S2EEmulator( c["analyzer"]["configuration"],
-                            c["emulator"]["configuration"],
-                            c["settings_dir"],
-                            c["output_dir"])
+        if a["name"] == "s2e" :
 
-        elif c["analyzer"]['name'] == "klee" :
+            s2e = configuration.checkS2EEmulatorConfiguration()
+
+            qemu = configuration.checkQEmuEmulatorConfiguration()
+
+            return S2EEmulator( a["configuration"],
+                            e["configuration"],
+                            qemu["base_dir"],
+                            qemu["output_dir"])
+
+        elif a['name'] == "klee" :
 
                 log.info("\r\nAttempt to configure Klee analyzer\r\n")
 
                 raise NotImplementedError("Unimplmented Klee analyzer")
 
-        elif c["analyzer"]['name'] == "angr" :
+        elif a['name'] == "angr" :
 
                 log.info("\r\nAttempt to configure Angr analyzer\r\n")
 

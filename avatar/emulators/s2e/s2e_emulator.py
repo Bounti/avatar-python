@@ -122,14 +122,14 @@ class S2EEmulator(Emulator):
                 self._remote_memory_interface.start()
 
             try:
-                gdb_path = self._configuration._s2e_configuration["emulator_gdb_path"]
+                gdb_path = self._configuration._s2e_configuration["gdb_path"]
             except KeyError:
                 gdb_path = "arm-none-eabi-gdb"
                 log.warn("Using default gdb executable path: %s" % gdb_path)
 
 
             try:
-                gdb_additional_args = self._configuration._s2e_configuration["emulator_gdb_additional_arguments"]
+                gdb_additional_args = self._configuration._s2e_configuration["gdb_options"]
             except KeyError:
                 gdb_additional_args = []
 

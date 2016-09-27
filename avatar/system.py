@@ -131,7 +131,7 @@ class System(object):
 
         nn = NameNormalizer()
 
-        info = {"Version" : "2.0", "compatibility": "1/2", "Testing Support" : "S2E", "Debugger" : "OpenOCD/GDB"}
+        info = {"Version" : "2.0", "compatibility": "1/2", "Testing Support" : "S2E/Klee", "Debugger" : "SuperspeeedJTag/OpenOCD/GDB"}
         log.info("\r\nAvatar : The Dynamic Analysis Framework for Embedded Systems V2.0 : \r\n %s \r\n" % format_table([(nn.normalize_name(n), info[n]) for n in info]))
 
     def stop(self):
