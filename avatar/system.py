@@ -58,6 +58,9 @@ class System(object):
 
         System.instance = self
 
+        self._emulator = None
+        self._target = None
+
         try:
             self._configuration = Configuration(user_settings)
 
@@ -66,7 +69,7 @@ class System(object):
 
             Log.activeLog(self._configuration.getOutputDirectory())
 
-        except (ValueError, AssertionError) as e:
+        except (ValueError, AssertionError, OSError, NotImplementedError) as e:
             log.critical("%s \r\n" % e)
             sys.exit(0)
 
@@ -77,12 +80,16 @@ class System(object):
         self._started = True
 
     def _init(self):
+
+        assert(self._emulator), "The emulator configuration stage may not have been successfully achieved"
+        assert(self._target), "The target configuration stage may not have been successfully achieved"
+
         try :
             self._emulator.init()
-            log.info("\r\nEmulator initialized : %s\r\n" % str(self._target.str()) )
+            log.info("\r\nEmulator initialized : %s\r\n" % str(self._emulator))
 
             self._target.init()
-            log.info("\r\nTarget initialized : %s\r\n" % str(self._target.str()) )
+            log.info("\r\nTarget initialized : %s\r\n" % str(self._target))
 
             self.is_initialized = True
         except Exception as e:
@@ -90,8 +97,9 @@ class System(object):
             self.stop()
 
     def start(self):
-        assert(self._emulator)
-        assert(self._target)
+
+        assert(self._emulator), "Emulator is not initialized"
+        assert(self._target), "Target is not initialized"
         assert(self._events)
 
         if self.is_initialized == False :
