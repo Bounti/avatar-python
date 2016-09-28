@@ -1,10 +1,17 @@
+from __future__ import unicode_literals
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 from avatar.emulators.s2e.s2e_emulator import S2EEmulator
 
 import logging
 
 log = logging.getLogger(__name__)
 
-class EmulatorsFactory:
+class EmulatorsFactory(object):
 
     @staticmethod
     def create(configuration, debug=True):

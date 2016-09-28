@@ -1,3 +1,11 @@
+from __future__ import unicode_literals
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+from builtins import int
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 from avatar.targets.openocd.openocd_target import OpenocdTarget
 from avatar.targets.openocd.openocd_jig import OpenocdJig
 from avatar.targets.superspeedjtag.superspeed_jtag import SuperspeedJtagTarget
@@ -7,7 +15,7 @@ import logging
 
 log = logging.getLogger(__name__)
 
-class TargetsFactory:
+class TargetsFactory(object):
 
     @staticmethod
     def create(configuration, debug=True):
