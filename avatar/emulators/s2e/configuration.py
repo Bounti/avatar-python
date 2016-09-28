@@ -1,3 +1,13 @@
+from __future__ import unicode_literals
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+from builtins import str
+from builtins import open
+from builtins import int
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 import os
 import shutil
 import json
@@ -8,7 +18,7 @@ from collections import OrderedDict
 
 log = logging.getLogger(__name__)
 
-class S2EConfiguration():
+class S2EConfiguration(object):
     def __init__(self, s2e_configuration, qemu_configuration, output_directory, configuration_directory):
         self._s2e_configuration = s2e_configuration
         self._cm_configuration = qemu_configuration["machine_configuration"]
@@ -279,7 +289,7 @@ class S2EConfiguration():
             cm_conf["devices"].append(dev)
 
         f = open(os.path.join(output_dir, "configurable_machine.json"), 'w')
-        json.dump(cm_conf, f, indent = 4)
+        json.dump(cm_conf, f, indent = 4, ensure_ascii=False)
         f.write("\n\n")
         f.close()
 

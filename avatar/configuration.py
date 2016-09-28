@@ -1,6 +1,13 @@
+from __future__ import print_function
+from __future__ import unicode_literals
+from __future__ import division
+from __future__ import absolute_import
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 import os
 
-class Configuration:
+class Configuration(object):
 
     #TODO : use call to create dynamical attribut from fields list
     def getOutputDirectory(self):

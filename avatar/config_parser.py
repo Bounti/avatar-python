@@ -1,6 +1,14 @@
-import cPickle
+from __future__ import unicode_literals
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+from builtins import open
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
+import pickle
 
-class ConfigParser:
+class ConfigParser(object):
 
     def __init__(self, path_to_config):
         self._data = []
@@ -18,7 +26,7 @@ class ConfigParser:
         with open(self._path, 'r') as f:
             self._data = f.read()
 
-        self._source = cPickle.loads(self._data)
+        self._source = pickle.loads(self._data)
 
     def _parse_analyzer_configuration(self):
         assert ("analyzer" in self._data), \

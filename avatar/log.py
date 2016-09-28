@@ -1,3 +1,10 @@
+from __future__ import unicode_literals
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 import sys
 import os
 import logging
@@ -28,7 +35,7 @@ coloredlogs.install(level='DEBUG')
 
 log = logging.getLogger(__name__)
 
-class Log:
+class Log(object):
 
     def activeLog(output_directory):
         if os.path.exists(output_directory) and not os.path.isdir(output_directory):
