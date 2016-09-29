@@ -7,7 +7,7 @@ import logging
 
 log = logging.getLogger(__name__)
 
-class TargetsFactory:
+class TargetsFactory(object):
 
     @staticmethod
     def create(configuration, debug=True):
@@ -23,33 +23,7 @@ class TargetsFactory:
 
         if c["name"] == "openocd" :
 
-            c = configuration.checkOpenocdTargetConfiguration()
-
-            if debug:
-                log.debug("\r\nTarget configuration : \r\n %s \r\n" % format_table([(nn.normalize_name(n), c[n]) for n in c]))
-
-            if c["protocol"] == "telnet" :
-                log.info("\r\nAttempt to configure Openocd Telnet target\r\n")
-
-                return OpenocdTarget(c["config_file"], c["host"], int(c["port"]), c["base_dir"], c["exec_path"], c["options"], c["log_stdout"])
-
-            elif  c["protocol"] == "gdb":
-                log.info("\r\nAttempt to configure Openocd GDB MI target\r\n")
-
-                openocdjig = OpenocdJig(c["config_file"], c["exec_path"],  c["base_dir"], options=c["options"], debug=debug)
-
-                return GdbserverTarget(c["config_file"], c["host"], int(c["port"]), c["exec_path"], c["options"], c["log_stdout"])
-
-                raise NotImplementedError("Unimplmented GDB MI connection to Openocd Server")
-
-            elif  c["protocol"] == "tcl":
-
-                log.info("\r\nAttempt to configure Openocd TCL target\r\n")
-
-                raise NotImplementedError("Unimplmented TCP TCL connection to Openocd Server")
-
-            else :
-                raise ValueError("Target configuration wrong : undefined target protocol %s !" % self.name)
+            ini_openocd()
 
         elif c["name"] == "gdb" :
 
@@ -67,3 +41,41 @@ class TargetsFactory:
 
         else :
             raise ValueError("Target configuration wrong : undefined target %s !" % self.name)
+
+    @staticmethod
+    def init_openocd():
+
+        c = configuration.checkOpenocdTargetConfiguration()
+
+        if debug:
+            log.debug("\r\nTarget configuration : \r\n %s \r\n" % format_table([(nn.normalize_name(n), c[n]) for n in c]))
+
+        if c["protocol"] == "telnet":
+            log.info("\r\nAttempt to configure Openocd Telnet target\r\n")
+
+            return OpenocdTarget(c["config_file"], c["host"], int(c["port"]), c["base_dir"], c["exec_path"], c["options"], c["log_stdout"])
+
+        elif  c["protocol"] == "gdb":
+            log.info("\r\nAttempt to configure Openocd GDB MI target\r\n")
+
+            return GdbserverTarget(c["config_file"], c["host"], int(c["port"]), c["exec_path"], c["options"], c["log_stdout"])
+
+            raise NotImplementedError("Unimplmented GDB MI connection to Openocd Server")
+
+        elif  c["protocol"] == "gdb_openocd":
+            log.info("\r\nAttempt to configure Openocd GDB MI target\r\n")
+
+            openocdjig = OpenocdJig(c["config_file"], c["exec_path"],  c["base_dir"], options=c["options"], debug=debug)
+
+            return GdbserverTarget(c["config_file"], c["host"], int(c["port"]), c["exec_path"], c["options"], c["log_stdout"])
+
+            raise NotImplementedError("Unimplmented GDB MI connection to Openocd Server")
+
+        elif  c["protocol"] == "tcl":
+
+            log.info("\r\nAttempt to configure Openocd TCL target\r\n")
+
+            raise NotImplementedError("Unimplmented TCP TCL connection to Openocd Server")
+
+        else :
+            raise ValueError("Target configuration wrong : undefined target protocol %s !" % self.name)

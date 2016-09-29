@@ -8,7 +8,7 @@ from coloredlogs import NameNormalizer
 from humanfriendly import format_table
 
 from avatar.call_proxy import EmulatorTargetCallProxy
-from avatar.configuration import Configuration
+from avatar.configuration.configurationFactory import ConfigurationFactory
 from avatar.targets.targets_factory import TargetsFactory
 from avatar.emulators.emulators_factory import EmulatorsFactory
 from avatar.events.event import Event as AvatarEvent
@@ -62,7 +62,8 @@ class System(object):
         self._target = None
 
         try:
-            self._configuration = Configuration(user_settings)
+
+            self._configuration = ConfigurationFactory.createParser(user_settings)
 
             self._target = TargetsFactory.create(self._configuration)
             self._emulator = EmulatorsFactory.create(self._configuration)

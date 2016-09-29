@@ -1,6 +1,8 @@
 import os
 
-class Configuration:
+from avatar.configuration.parser.parser import Parser
+
+class ParserV2(Parser):
 
     #TODO : use call to create dynamical attribut from fields list
     def getOutputDirectory(self):
@@ -147,28 +149,29 @@ class Configuration:
 
     def checkKleeEmulatorConfiguration(self):
 
-        assert ("configuration" in self._emulator_settings), \
-            "Bad user settings : Unable to locate emulator 'configuration' settings"
-        emulator = self._emulator_settings["configuration"]
+        assert ("configuration" in self._analyzer_settings), \
+            "Bad user settings : Unable to locate analyzer 'configuration' settings"
+        analyzer = self._analyzer_settings["configuration"]
 
-        return {"emulator"      : emulator,
-                "base_dir"  : self._directory_settings,
-                "output_dir" : self._output_directory}
+        assert ("options" in analyzer), \
+            "Bad user settings : Unable to locate openocd target 'options' setting"
+        options = analyzer["options"]
 
+        assert ("exec_path" in analyzer), \
+            "Bad user settings : Unable to locate openocd target 'options' setting"
+        exec_path = analyzer["exec_path"]
+
+        assert ("debug" in analyzer), \
+            "Bad user settings : Unable to locate openocd target 'options' setting"
+        debug = analyzer["debug"]
+
+        return {"exec_path"     : exec_path,
+                "base_dir"      : self._directory_settings,
+                "options"       : options,
+                "debug"         : debug,
+                "output_dir"    : self._output_directory}
 
     def checkS2EEmulatorConfiguration(self):
 
         keys = ["verbose","s2e_binary","gdb_path","gdb_options","klee_options","plugins"]
         s2e_values = self.checkConfiguration(keys, self._analyzer_settings)
-
-        print(s2e_values)
-
-    def checkConfiguration(self, oracles, source):
-        out = {}
-
-        for oracle in oracles:
-            assert (oracle in self._analyzer_settings["configuration"]), \
-                "Bad user settings : Unable to locate analyzer '%s' settings" % oracle
-            out[oracle] = self._analyzer_settings["configuration"][oracle]
-
-        return out
