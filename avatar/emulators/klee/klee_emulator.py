@@ -1,3 +1,10 @@
+from __future__ import unicode_literals
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+from builtins import open
+from future import standard_library
+standard_library.install_aliases()
 from avatar.emulators.emulator import Emulator
 
 class KleeEmulator(Emulator):
@@ -19,6 +26,7 @@ class KleeEmulator(Emulator):
         return self._name
 
     def init(self):
+        pass
 
     def start(self):
         try:
@@ -33,3 +41,4 @@ class KleeEmulator(Emulator):
         if self._log is not None and self._openocd_pid is not None :
             self._process.kill()
             self._log.close()
+

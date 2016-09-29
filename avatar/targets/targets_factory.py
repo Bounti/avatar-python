@@ -1,3 +1,10 @@
+from __future__ import unicode_literals
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+from builtins import int
+from future import standard_library
+standard_library.install_aliases()
 from avatar.targets.openocd.openocd_target import OpenocdTarget
 from avatar.targets.openocd.openocd_jig import OpenocdJig
 from avatar.targets.superspeedjtag.superspeed_jtag import SuperspeedJtagTarget
@@ -79,3 +86,4 @@ class TargetsFactory(object):
 
         else :
             raise ValueError("Target configuration wrong : undefined target protocol %s !" % self.name)
+

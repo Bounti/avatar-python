@@ -1,3 +1,9 @@
+from __future__ import print_function
+from __future__ import unicode_literals
+from __future__ import division
+from __future__ import absolute_import
+from future import standard_library
+standard_library.install_aliases()
 from avatar.configuration.configurationFactory import ConfigurationFactory
 
 from avatar.system import System
@@ -37,7 +43,7 @@ def generate_conf(analyzer, target, emulator, type):
     configuration = {
         "version"                   : 1.0,
         "output_directory"          : "",
-        "configuration_directory"   : os.getcwd(),
+        "configuration_directory"   : os.getcwdu(),
 
         "analyzer"                  : {"name" : analyzer,     "configuration": analyzer_configuration },
         "emulator"                  : {"name" : emulator,    "configuration": emulator_configuration },

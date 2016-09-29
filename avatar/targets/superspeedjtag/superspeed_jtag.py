@@ -1,3 +1,10 @@
+from __future__ import unicode_literals
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+from builtins import int
+from future import standard_library
+standard_library.install_aliases()
 from avatar.targets.target import Target
 
 import socket
@@ -89,11 +96,11 @@ class SuperspeedJtagTarget(Target):
     def get_checksum(self, addr, size):
         return self.lib.jtag_checksum(self.obj, addr, size)
 
-    def write_typed_memory(self, address : "str 0xNNNNNNNN", size : "int", data):
+    def write_typed_memory(self, address, size, data):
 
         self.lib.jtag_write(self.obj, address, data)
 
-    def read_typed_memory(self, address : "str 0xNNNNNNNN", size : "int"):
+    def read_typed_memory(self, address, size):
 
         self.lib.jtag_read(self.obj, address)
 
@@ -103,7 +110,7 @@ class SuperspeedJtagTarget(Target):
     def remove_breakpoint(self, address):
         self.remove_raw_bp(address)
 
-    def put_raw_bp(self, addr : "str 0xNNNNNNNN", size : "int"):
+    def put_raw_bp(self, addr, size):
         """
         Put a breakpoint
         :param addr: address literal in hexadecimal
@@ -113,7 +120,7 @@ class SuperspeedJtagTarget(Target):
         """
         self.lib.bp(self.obj, addr, size)
 
-    def remove_raw_bp(self, addr : "str 0xNNNNNNNN"):
+    def remove_raw_bp(self, addr):
         """
         Remove a breakpoint
         :param addr: address literal in hexadecimal
@@ -131,7 +138,7 @@ class SuperspeedJtagTarget(Target):
         """
         return self.lib.raw_register(self.obj, regname)
 
-    def initstate(self, cfg : "dict of str"):
+    def initstate(self, cfg):
         """ Change S2E configurable machine initial setup"""
         assert("machine_configuration" in cfg)
         self.get_output(2)
@@ -147,7 +154,7 @@ class SuperspeedJtagTarget(Target):
 ###################################################################
 
     @paused
-    def put_bp(self, addr : "str 0xNNNNNNNN"):
+    def put_bp(self, addr):
         """
         Pause the target, put a breakpoint, then resume it
         :param addr: address literal in hexadecimal
@@ -157,7 +164,7 @@ class SuperspeedJtagTarget(Target):
         self.raw_cmd("bp %s 2 hw" % addr)
 
     @paused
-    def remove_bp(self, addr : "str 0xNNNNNNNN"):
+    def remove_bp(self, addr):
         """
         Pause the target, remove a breakpoint, the resume it
         :param addr: address literal in hexadecimal
@@ -210,7 +217,7 @@ class SuperspeedJtagTarget(Target):
 ###################################################################
 
     @classmethod
-    def from_str(cls, sockaddr_str: "str, proto:addr:port"):
+    def from_str(cls, sockaddr_str):
         """ Static factory """
         assert(sockaddr_str.startswith("tcp:"))
         sockaddr = (sockaddr_str[:sockaddr_str.rfind(":")],

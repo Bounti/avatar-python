@@ -1,3 +1,11 @@
+from __future__ import unicode_literals
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+from builtins import str
+from builtins import int
+from future import standard_library
+standard_library.install_aliases()
 from avatar.targets.target import Target
 from avatar.targets.openocd.openocd_jig import OpenocdJig
 
@@ -141,7 +149,7 @@ class OpenocdTarget(Target):
         #    log.info(out)
         return out
 
-    def write_typed_memory(self, address : "str 0xNNNNNNNN", size : "int", data):
+    def write_typed_memory(self, address, size, data):
         cmd = ""
         if size == 8 :
             cmd = "mwb"
@@ -154,8 +162,8 @@ class OpenocdTarget(Target):
             "invalid argument '%d' for size in write_typed_memory, accepted 8, 16, 32" % size
         self.raw_cmd(cmd+" %s %s" % (address, data))
 
-    def read_typed_memory(self, address : "str 0xNNNNNNNN", size : "int"):
-
+    def read_typed_memory(self, address, size):
+        
         cmd = ""
         if size == 8 :
             cmd = "mdb"
@@ -174,7 +182,7 @@ class OpenocdTarget(Target):
     def remove_breakpoint(self, address):
         self.remove_raw_bp(address)
 
-    def put_raw_bp(self, addr : "str 0xNNNNNNNN", size : "int"):
+    def put_raw_bp(self, addr, size):
         """
         Put a breakpoint
         :param addr: address literal in hexadecimal
@@ -185,7 +193,7 @@ class OpenocdTarget(Target):
 		# FIXME: hardcoded hw breakpoint
         self.raw_cmd("bp %s %d hw" % (addr, size))
 
-    def remove_raw_bp(self, addr : "str 0xNNNNNNNN"):
+    def remove_raw_bp(self, addr):
         """
         Remove a breakpoint
         :param addr: address literal in hexadecimal
@@ -209,7 +217,7 @@ class OpenocdTarget(Target):
 
         return int(value, 0)
 
-    def initstate(self, cfg : "dict of str"):
+    def initstate(self, cfg):
         """ Change S2E configurable machine initial setup"""
         assert("machine_configuration" in cfg)
         self.get_output(2)
@@ -225,7 +233,7 @@ class OpenocdTarget(Target):
 ###################################################################
 
     @paused
-    def put_bp(self, addr : "str 0xNNNNNNNN"):
+    def put_bp(self, addr):
         """
         Pause the target, put a breakpoint, then resume it
         :param addr: address literal in hexadecimal
@@ -235,7 +243,7 @@ class OpenocdTarget(Target):
         self.raw_cmd("bp %s 2 hw" % addr)
 
     @paused
-    def remove_bp(self, addr : "str 0xNNNNNNNN"):
+    def remove_bp(self, addr):
         """
         Pause the target, remove a breakpoint, the resume it
         :param addr: address literal in hexadecimal
@@ -288,9 +296,10 @@ class OpenocdTarget(Target):
 ###################################################################
 
     @classmethod
-    def from_str(cls, sockaddr_str: "str, proto:addr:port"):
+    def from_str(cls, sockaddr_str):
         """ Static factory """
         assert(sockaddr_str.startswith("tcp:"))
         sockaddr = (sockaddr_str[:sockaddr_str.rfind(":")],
                     int(sockaddr_str[sockaddr_str.rfind(":") + 1:]))
         return cls(sockaddr)
+
