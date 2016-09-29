@@ -136,11 +136,12 @@ class System(object):
         log.info("\r\nAvatar : The Dynamic Analysis Framework for Embedded Systems V2.0 : \r\n %s \r\n" % format_table([(nn.normalize_name(n), info[n]) for n in info]))
 
     def stop(self):
-        if self._started is True :
-            self._events.stop()
-            self._emulator.stop()
-            self._target.stop()
-            self._started = False
+        self._events.stop()
+        self._emulator.stop()
+        self._target.stop()
+        self._started = False
+        sys.exit(0)
+
     """
         Proxy API
     """

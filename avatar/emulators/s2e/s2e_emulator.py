@@ -157,8 +157,11 @@ class S2EEmulator(Emulator):
             log.info("Successfully connected to emulator.")
             self._is_s2e_running.set()
             self._s2e_process.wait()
-        except KeyboardInterrupt:
-            pass
+        except (FileNotFoundError, KeyboardInterrupt) as e:
+            if type(e).__name__ == "FileNotFoundError" :
+                log.error("Wrong path for s2e")
+            else :
+                pass
 
         self.exit()
 

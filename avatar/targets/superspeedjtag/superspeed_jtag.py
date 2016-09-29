@@ -64,12 +64,13 @@ class SuperspeedJtagTarget(Target):
     def start(self):
         if self._connected is not True:
             self.obj = self.lib.jtag_init()
+            self._connected = True
 
     def stop(self):
         """ Stop the Jtag device """
         if self._connected is True :
 
-            self.lib.jtag_close(self.obj)
+            #self.lib.jtag_close(self.obj)
 
             self._connected = False
 

@@ -14,6 +14,6 @@ class AvatarSignal:
         log.critical(' --- Ctrl+C Detected --- ')
 
         from avatar.system import System
-        System.getInstance().shutdown()
+        System.getInstance().stop()
 
         log.critical(' --- Waiting for last iteration to complete --- ')
