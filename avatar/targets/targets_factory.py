@@ -17,13 +17,12 @@ class TargetsFactory(object):
         :param configuration: dictionary containing all user configuration to correctly setup Avatar modules
         :return:
         """
-        nn = NameNormalizer()
 
         c = configuration.checkGlobalTargetConfiguration()
 
         if c["name"] == "openocd" :
 
-            ini_openocd()
+            init_openocd()
 
         elif c["name"] == "gdb" :
 
@@ -37,6 +36,11 @@ class TargetsFactory(object):
 
             c = configuration.checkSuperspeedJtagConfiguration()
 
+            nn = NameNormalizer()
+            if debug:
+                log.debug("\r\nTarget configuration : \r\n %s \r\n" % format_table([(nn.normalize_name(n), c[n]) for n in c]))
+
+
             return SuperspeedJtagTarget( c['access-port'], c['base_dir'], c['options'], debug=False)
 
         else :
@@ -47,6 +51,7 @@ class TargetsFactory(object):
 
         c = configuration.checkOpenocdTargetConfiguration()
 
+        nn = NameNormalizer()
         if debug:
             log.debug("\r\nTarget configuration : \r\n %s \r\n" % format_table([(nn.normalize_name(n), c[n]) for n in c]))
 

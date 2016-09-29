@@ -154,18 +154,23 @@ class ParserV2(Parser):
         analyzer = self._analyzer_settings["configuration"]
 
         assert ("options" in analyzer), \
-            "Bad user settings : Unable to locate openocd target 'options' setting"
+            "Bad user settings : Unable to locate Klee target 'options' setting"
         options = analyzer["options"]
 
         assert ("exec_path" in analyzer), \
-            "Bad user settings : Unable to locate openocd target 'options' setting"
+            "Bad user settings : Unable to locate Klee target 'exec_path' setting"
         exec_path = analyzer["exec_path"]
 
         assert ("debug" in analyzer), \
-            "Bad user settings : Unable to locate openocd target 'options' setting"
+            "Bad user settings : Unable to locate Klee target 'debug' setting"
         debug = analyzer["debug"]
 
-        return {"exec_path"     : exec_path,
+        assert ("binary" in analyzer), \
+            "Bad user settings : Unable to locate Klee target 'binary' setting"
+        binary = analyzer["binary"]
+
+        return {"binary"        : binary,
+                "exec_path"     : exec_path,
                 "base_dir"      : self._directory_settings,
                 "options"       : options,
                 "debug"         : debug,
