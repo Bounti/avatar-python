@@ -43,7 +43,7 @@ def generate_conf(analyzer, target, emulator, type):
     configuration = {
         "version"                   : 1.0,
         "output_directory"          : "",
-        "configuration_directory"   : os.getcwdu(),
+        "configuration_directory"   : os.getcwd(),
 
         "analyzer"                  : {"name" : analyzer,     "configuration": analyzer_configuration },
         "emulator"                  : {"name" : emulator,    "configuration": emulator_configuration },
