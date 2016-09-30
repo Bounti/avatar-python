@@ -149,6 +149,7 @@ class System(object):
         self._emulator.stop()
         self._target.stop()
         self._started = False
+        time.sleep(5)
         sys.exit(0)
 
     """

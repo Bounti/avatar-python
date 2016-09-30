@@ -6,6 +6,7 @@ from future import standard_library
 standard_library.install_aliases()
 from builtins import object
 from avatar.emulators.s2e.s2e_emulator import S2EEmulator
+from avatar.emulators.klee.klee_emulator import KleeEmulator
 
 import logging
 
@@ -28,7 +29,11 @@ class EmulatorsFactory(object):
 
         if a["name"] == "s2e" :
 
+            log.info("\r\nAttempt to configure S2E analyzer\r\n")
+
             s2e = configuration.checkS2EEmulatorConfiguration()
+
+            log.info("\r\nAttempt to configure QEmu emulator\r\n")
 
             qemu = configuration.checkQEmuEmulatorConfiguration()
 
@@ -41,7 +46,10 @@ class EmulatorsFactory(object):
 
                 log.info("\r\nAttempt to configure Klee analyzer\r\n")
 
-                raise NotImplementedError("Unimplmented Klee analyzer")
+                k = configuration.checkKleeEmulatorConfiguration()
+
+                return KleeEmulator(k["binary"], k["exec_path"], k["base_dir"], k["options"], k["debug"])
+                # raise NotImplementedError("Unimplmented Klee analyzer")
 
         elif a['name'] == "angr" :
 
